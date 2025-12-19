@@ -1,0 +1,50 @@
+{
+  "name": "first-record-finder",
+  "version": "0.1.0",
+  "description": "한국 수산생물 최초기록 문헌 검색 시스템",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "next dev -p 3001",
+    "build": "next build",
+    "start": "next start -p 3001",
+    "search": "npx ts-node scripts/search.ts",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:worms": "npx ts-node scripts/test-worms.ts",
+    "lint": "eslint . --ext .ts,.tsx",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "^14.2.0",
+    "pdf-parse": "^1.1.1",
+    "puppeteer": "^22.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "uuid": "^9.0.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.27",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@types/uuid": "^9.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.3.0",
+    "vitest": "^4.0.16"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "taxonomy",
+    "worms",
+    "marine-biology",
+    "first-record",
+    "korea"
+  ],
+  "author": "",
+  "license": "MIT"
+}
