@@ -1,6 +1,6 @@
 # 개발 로드맵
 
-## 현재 상태 (2024-12)
+## 현재 상태 (2025-01 업데이트)
 
 ### ✅ 완료된 기능
 
@@ -12,11 +12,25 @@
 | 웹 뷰어 기본 | `app/page.tsx` | 검색 + 결과 표시 |
 | CLI 스크립트 | `scripts/*.ts` | 커맨드라인 검색 |
 | 타입 정의 | `src/types/index.ts` | 전체 타입 시스템 |
+| **문헌 검색 API** | `src/literature/*.ts` | 6개 소스 통합 검색 |
+
+### ✅ 문헌 검색 API 구현 완료 (Phase 2)
+
+| 소스 | 클라이언트 | 용도 | 상태 |
+|------|-----------|------|------|
+| BHL | `bhl-client.ts` | 1800~1970년대 역사적 문헌 | ✅ (API 키 필요) |
+| Semantic Scholar | `semantic-client.ts` | 최신 학술 논문 | ✅ (API 키 권장) |
+| J-STAGE | `jstage-client.ts` | 일본 학술지 (일제강점기) | ✅ |
+| CiNii | `cinii-client.ts` | 일본 학술 DB | ✅ |
+| GBIF | `gbif-client.ts` | 표본/관찰 데이터 | ✅ |
+| OBIS | `obis-client.ts` | 해양생물 분포 | ✅ |
 
 ### 테스트 완료 사항
 - [x] WoRMS API 이명 추출 (5개 종 테스트)
 - [x] 연도 추출 100% 성공
 - [x] 다양한 학명 입력 형식 처리 (9개 형식 테스트)
+- [x] 문헌 검색 통합 테스트 (Sebastes schlegelii, Paralichthys olivaceus)
+- [x] 6개 API 클라이언트 작동 확인
 
 ---
 

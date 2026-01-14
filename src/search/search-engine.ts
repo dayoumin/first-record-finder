@@ -220,7 +220,6 @@ export function createFirstRecordResult(
     searchedAt: new Date(),
     acceptedName: synonymResult.acceptedName || '',
     aphiaId: synonymResult.aphiaId || 0,
-    authority: synonymResult.authority || '',
     synonyms: synonymResult.synonyms,
     candidateRecords: sorted,
     firstRecord,
@@ -231,8 +230,9 @@ export function createFirstRecordResult(
 /**
  * 한국 관련 검색 키워드 목록
  * - 역사적 표기 변화 고려 (Corea → Korea)
- * - 다양한 언어 표기 포함
+ * - 다양한 언어 표기 포함 (영어, 한글, 일본어)
  * - 지역명 포함
+ * - 일본 식민지 시대 (1910-1945) 일본어 표기 포함
  */
 export const KOREA_KEYWORDS = [
   // 영문 표기
@@ -240,12 +240,27 @@ export const KOREA_KEYWORDS = [
   'Korean',
   'Corea',           // 1900년대 초반까지 사용된 표기
   'Corean',
+  'Koria',           // 옛 스펠링
 
   // 한글 표기
   '한국',
   '조선',            // 일제강점기 및 그 이전
   '대한민국',
   '남한',
+
+  // 일본어 표기 (식민지 시대 문헌용)
+  '朝鮮',            // Chōsen - 조선 (일본 한자)
+  'ちょうせん',       // 조선 (히라가나)
+  'チョウセン',       // 조선 (가타카나)
+  'Chosen',          // 조선 (로마자)
+  'Tyosen',          // 조선 (옛 로마자 표기)
+  '鬱陵島',          // 울릉도 (일본 한자)
+  '済州',            // 제주 (일본 한자)
+  '釜山',            // 부산 (일본 한자)
+  '仁川',            // 인천 (일본 한자)
+  '元山',            // 원산 (일본 한자)
+  '鎮海',            // 진해 (일본 한자)
+  '馬山',            // 마산 (일본 한자)
 
   // 해역/수역
   'Korean waters',
@@ -254,21 +269,35 @@ export const KOREA_KEYWORDS = [
   'East Sea',
   'Yellow Sea',
   'South Sea',       // 남해
+  '日本海',          // 동해 (일본 명칭)
+  '黄海',            // 황해 (한자)
+  '朝鮮海峡',        // 대한해협 (일본식)
+  'Sea of Japan',    // 동해 (서양 명칭)
+  'Tsushima Strait', // 대한해협
 
   // 주요 지역명 (영문)
   'Busan',
   'Pusan',           // 과거 표기
+  'Fuzan',           // 일본식 표기 (식민지 시대)
   'Jeju',
   'Cheju',           // 과거 표기
+  'Quelpart',        // 제주 서양 고명
+  'Saishu',          // 제주 일본식 표기
   'Dokdo',
   'Ulleungdo',
+  'Dagelet',         // 울릉도 서양 고명
   'Incheon',
+  'Chemulpo',        // 인천 옛 명칭
+  'Jinsen',          // 인천 일본식 표기
   'Pohang',
   'Tongyeong',
   'Yeosu',
   'Mokpo',
   'Gunsan',
+  'Kunsan',          // 군산 일본식 표기
   'Sokcho',
+  'Wonsan',          // 원산 (북한)
+  'Genzan',          // 원산 일본식 표기
 
   // 주요 지역명 (한글)
   '부산',
@@ -281,7 +310,10 @@ export const KOREA_KEYWORDS = [
   '여수',
   '목포',
   '군산',
-  '속초'
+  '속초',
+  '원산',
+  '진해',
+  '마산'
 ];
 
 /**
@@ -307,8 +339,8 @@ export function generateGoogleScholarUrl(
       const keywords = KOREA_KEYWORDS.map(k => k.includes(' ') ? `"${k}"` : k);
       query += ` (${keywords.join(' OR ')})`;
     } else {
-      // 핵심 키워드만 (권장)
-      query += ' (Korea OR Korean OR Corea OR 한국 OR 조선 OR "Korean waters" OR "East Sea" OR Busan OR Jeju)';
+      // 핵심 키워드만 (권장) - 영문 + 한글 + 일본어 포함
+      query += ' (Korea OR Korean OR Corea OR 한국 OR 조선 OR 朝鮮 OR Chosen OR "Korean waters" OR "East Sea" OR Busan OR Fuzan OR Jeju OR Quelpart)';
     }
   }
 
@@ -373,9 +405,9 @@ export function generateSearchUrlsWithOptions(
     // 검색어 구성
     let searchTerm = `"${syn.name}"`;
 
-    // 한국 키워드 추가
+    // 한국 키워드 추가 (영문 + 한글 + 일본어)
     if (includeKoreaKeywords) {
-      searchTerm += ' (Korea OR Korean OR Corea OR 한국 OR 조선 OR "Korean waters" OR "East Sea" OR Busan OR Jeju)';
+      searchTerm += ' (Korea OR Korean OR Corea OR 한국 OR 조선 OR 朝鮮 OR Chosen OR "Korean waters" OR "East Sea" OR Busan OR Fuzan OR Jeju OR Quelpart)';
     }
 
     // 커스텀 키워드 추가
