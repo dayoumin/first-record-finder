@@ -15,6 +15,7 @@ import {
   DEFAULT_LLM_CONFIG,
   PROVIDER_BASE_URLS,
 } from './types';
+import { getRateLimiter, RateLimitStatus } from './rate-limiter';
 
 /** 기본 타임아웃 (60초) */
 const DEFAULT_TIMEOUT_MS = 60000;
@@ -28,6 +29,14 @@ class LLMTimeoutError extends Error {
   constructor(provider: string, timeoutMs: number) {
     super(`LLM request to ${provider} timed out after ${timeoutMs}ms`);
     this.name = 'LLMTimeoutError';
+  }
+}
+
+/** Rate Limit 초과 에러 */
+export class RateLimitExceededError extends Error {
+  constructor(public readonly status: RateLimitStatus) {
+    super(`OpenRouter 일일 사용량 초과: ${status.used}/${status.limit}회 사용. 리셋 시간: ${status.resetsAt}`);
+    this.name = 'RateLimitExceededError';
   }
 }
 
@@ -149,6 +158,8 @@ export class LLMClient implements ILLMClient {
     switch (this.provider) {
       case 'ollama':
         return this.generateOllama(prompt);
+      case 'openrouter':
+        return this.generateOpenRouter(prompt);
       case 'grok':
         return this.generateGrok(prompt);
       case 'openai':
@@ -233,6 +244,52 @@ export class LLMClient implements ILLMClient {
 
     const data = await response.json();
     return data.response || '';
+  }
+
+  /**
+   * OpenRouter API 호출 (OpenAI 호환)
+   * - 무료 모델 사용 시 Rate Limit 체크
+   */
+  private async generateOpenRouter(prompt: string): Promise<string> {
+    if (!this.config.apiKey) {
+      throw new Error('OpenRouter API key is required');
+    }
+
+    // 무료 모델(:free)인 경우 rate limit 체크
+    if (this.model.endsWith(':free')) {
+      const rateLimiter = getRateLimiter();
+      if (!rateLimiter.canMakeRequest()) {
+        throw new RateLimitExceededError(rateLimiter.getStatus());
+      }
+      // 사용량 증가
+      rateLimiter.incrementUsage();
+    }
+
+    const url = `${this.config.baseUrl}/chat/completions`;
+
+    const response = await this.fetchWithTimeout(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.config.apiKey}`,
+        'HTTP-Referer': 'https://first-record-finder.local',
+        'X-Title': 'First Record Finder',
+      },
+      body: JSON.stringify({
+        model: this.model,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: this.config.temperature,
+        max_tokens: this.config.maxTokens,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`OpenRouter error: ${response.status} - ${error}`);
+    }
+
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content || '';
   }
 
   /**
@@ -533,6 +590,13 @@ export function loadLLMConfigFromEnv(): LLMConfig {
         provider: 'grok',
         model: process.env.GROK_MODEL || 'grok-4.1',
         apiKey: process.env.GROK_API_KEY,
+      };
+
+    case 'openrouter':
+      return {
+        provider: 'openrouter',
+        model: process.env.OPENROUTER_MODEL || 'anthropic/claude-3.5-sonnet',
+        apiKey: process.env.OPENROUTER_API_KEY,
       };
 
     case 'openai':

@@ -18,4 +18,14 @@ export {
   LLMClient,
   createLLMClient,
   loadLLMConfigFromEnv,
+  RateLimitExceededError,
 } from './client';
+
+export {
+  type RateLimitConfig,
+  type RateLimitStatus,
+  type UsageData,
+  RateLimiter,
+  getRateLimiter,
+  resetRateLimiter,
+} from './rate-limiter';

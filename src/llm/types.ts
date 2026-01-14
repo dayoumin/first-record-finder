@@ -3,7 +3,7 @@
  */
 
 // LLM 제공자
-export type LLMProvider = 'ollama' | 'grok' | 'openai' | 'anthropic';
+export type LLMProvider = 'ollama' | 'openrouter' | 'grok' | 'openai' | 'anthropic';
 
 // LLM 설정
 export interface LLMConfig {
@@ -27,6 +27,7 @@ export const DEFAULT_LLM_CONFIG: Partial<LLMConfig> = {
 // 제공자별 기본 URL
 export const PROVIDER_BASE_URLS: Record<LLMProvider, string> = {
   ollama: 'http://localhost:11434',
+  openrouter: 'https://openrouter.ai/api/v1',
   grok: 'https://api.x.ai/v1',
   openai: 'https://api.openai.com/v1',
   anthropic: 'https://api.anthropic.com/v1',
