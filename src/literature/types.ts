@@ -6,6 +6,7 @@
 export type LiteratureSource =
   | 'bhl'           // Biodiversity Heritage Library
   | 'semantic'      // Semantic Scholar
+  | 'openalex'      // OpenAlex (현대 논문 - 주력)
   | 'jstage'        // J-STAGE (일본)
   | 'cinii'         // CiNii (일본)
   | 'gbif'          // GBIF (표본 데이터)
@@ -13,6 +14,30 @@ export type LiteratureSource =
   | 'kci'           // KCI (한국학술지인용색인)
   | 'riss'          // RISS (학술연구정보서비스)
   | 'manual';       // 수동 업로드
+
+// 소스 설정 (활성화/비활성화)
+export interface LiteratureSourceConfig {
+  source: LiteratureSource;
+  enabled: boolean;
+  name: string;
+  description: string;
+  requiresApiKey: boolean;
+  apiKeyEnvVar?: string;
+}
+
+// 기본 소스 설정
+export const DEFAULT_SOURCE_CONFIGS: LiteratureSourceConfig[] = [
+  { source: 'bhl', enabled: true, name: 'BHL', description: '역사적 문헌 (1800~1970)', requiresApiKey: true, apiKeyEnvVar: 'BHL_API_KEY' },
+  { source: 'openalex', enabled: true, name: 'OpenAlex', description: '현대 논문 (주력, 2억+ 논문)', requiresApiKey: false },
+  { source: 'semantic', enabled: false, name: 'Semantic Scholar', description: '현대 논문 (백업)', requiresApiKey: false },
+  { source: 'jstage', enabled: true, name: 'J-STAGE', description: '일본 학술지 (일제강점기)', requiresApiKey: false },
+  { source: 'cinii', enabled: true, name: 'CiNii', description: '일본 학술 DB', requiresApiKey: false },
+  { source: 'gbif', enabled: true, name: 'GBIF', description: '생물다양성 표본 데이터', requiresApiKey: false },
+  { source: 'obis', enabled: true, name: 'OBIS', description: '해양생물 분포', requiresApiKey: false },
+  { source: 'kci', enabled: false, name: 'KCI', description: '한국학술지 (API 키 필요)', requiresApiKey: true, apiKeyEnvVar: 'KCI_API_KEY' },
+  { source: 'riss', enabled: false, name: 'RISS', description: '한국 학위논문 (API 키 필요)', requiresApiKey: true, apiKeyEnvVar: 'RISS_API_KEY' },
+  { source: 'manual', enabled: true, name: '수동 업로드', description: 'PDF 직접 업로드', requiresApiKey: false },
+];
 
 // 검색된 문헌 메타데이터
 export interface LiteratureItem {

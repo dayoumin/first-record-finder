@@ -89,7 +89,6 @@ async function main() {
     console.log('📋 검색 결과');
     console.log('-'.repeat(40));
     console.log(`유효 학명: ${firstRecordResult.acceptedName}`);
-    console.log(`저자: ${firstRecordResult.authority}`);
     console.log(`AphiaID: ${firstRecordResult.aphiaId}`);
     console.log();
 

@@ -14,9 +14,12 @@ import {
   CollectionProgress,
   SourceError,
   ILiteratureClient,
+  LiteratureSourceConfig,
+  DEFAULT_SOURCE_CONFIGS,
 } from './types';
 import { BhlClient } from './bhl-client';
 import { SemanticScholarClient } from './semantic-client';
+import { OpenAlexClient } from './openalex-client';
 import { JStageClient } from './jstage-client';
 import { CiNiiClient } from './cinii-client';
 import { GBIFClient } from './gbif-client';
@@ -33,13 +36,14 @@ const RESULTS_DIR = path.join(process.cwd(), 'data', 'results');
  *
  * 문헌 검색 소스 역할:
  * - 역사적 최초 기록 (1800년대~): BHL, J-STAGE, CiNii
- * - 현대 영문 논문: Semantic Scholar
+ * - 현대 영문 논문: OpenAlex (주력), Semantic Scholar (백업)
  * - 기후 변화로 인한 최근 신규 기록: KCI, RISS (한국 논문)
  * - 생물다양성 기록 데이터: GBIF, OBIS
  */
 const clients: Record<LiteratureSource, ILiteratureClient | null> = {
   bhl: new BhlClient(),           // 역사적 문헌 (1800년대~)
-  semantic: new SemanticScholarClient(),  // 현대 영문 논문
+  semantic: new SemanticScholarClient(),  // 현대 영문 논문 (백업)
+  openalex: new OpenAlexClient(), // 현대 영문 논문 (주력, 2억+ 논문)
   jstage: new JStageClient(),     // 일본 논문 (일제강점기 자료)
   cinii: new CiNiiClient(),       // 일본 학술정보
   gbif: new GBIFClient(),         // 생물다양성 기록
@@ -48,6 +52,35 @@ const clients: Record<LiteratureSource, ILiteratureClient | null> = {
   riss: new RissClient(),         // 한국 학위논문 (기후 변화 신규 기록)
   manual: null,                   // 수동 업로드용 (클라이언트 불필요)
 };
+
+// 소스 설정 (로컬 스토리지 또는 설정 파일에서 로드)
+let sourceConfigs: LiteratureSourceConfig[] = [...DEFAULT_SOURCE_CONFIGS];
+
+/**
+ * 소스 설정 로드
+ */
+export function getSourceConfigs(): LiteratureSourceConfig[] {
+  return sourceConfigs;
+}
+
+/**
+ * 소스 설정 업데이트
+ */
+export function updateSourceConfig(source: LiteratureSource, enabled: boolean): void {
+  const config = sourceConfigs.find(c => c.source === source);
+  if (config) {
+    config.enabled = enabled;
+  }
+}
+
+/**
+ * 활성화된 소스만 반환
+ */
+export function getEnabledSources(): LiteratureSource[] {
+  return sourceConfigs
+    .filter(c => c.enabled && clients[c.source] !== null)
+    .map(c => c.source);
+}
 
 /**
  * 디렉토리 생성
@@ -86,8 +119,8 @@ export async function searchLiterature(
 
   const { scientificName, synonyms, sources, yearFrom, yearTo, maxResults = 20, searchStrategy = 'both' } = request;
 
-  // 검색할 소스 결정 (기본: BHL, Semantic Scholar, J-STAGE, GBIF)
-  const targetSources: LiteratureSource[] = sources || ['bhl', 'semantic', 'jstage', 'gbif'];
+  // 검색할 소스 결정 (기본: 활성화된 소스 사용)
+  const targetSources: LiteratureSource[] = sources || getEnabledSources();
 
   const allItems: LiteratureItem[] = [];
   const errors: SourceError[] = [];

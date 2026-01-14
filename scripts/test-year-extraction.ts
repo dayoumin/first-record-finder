@@ -34,7 +34,6 @@ async function testYearExtraction() {
       }
 
       console.log(`  ✅ 유효명: ${result.acceptedName}`);
-      console.log(`  📅 저자: ${result.authority}`);
       console.log(`  🆔 AphiaID: ${result.aphiaId}`);
       console.log();
       console.log(`  📚 이명 목록 (${result.synonyms.length}개):`);

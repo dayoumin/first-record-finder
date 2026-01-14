@@ -12,6 +12,16 @@ interface RateLimitStatus {
   resetsAt: string;
 }
 
+// 문헌 소스 설정 타입
+interface SourceConfig {
+  source: string;
+  enabled: boolean;
+  name: string;
+  description: string;
+  requiresApiKey: boolean;
+  apiKeyEnvVar?: string;
+}
+
 // 프로젝트 진행 상태 타입
 interface ProjectStatus {
   phase: string;
@@ -308,8 +318,10 @@ const OPENROUTER_FREE_MODELS = [
 ];
 
 export default function Dashboard() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'sources' | 'workflow' | 'strategy'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'sources' | 'workflow' | 'strategy' | 'settings'>('overview');
   const [rateLimitStatus, setRateLimitStatus] = useState<RateLimitStatus | null>(null);
+  const [sourceConfigs, setSourceConfigs] = useState<SourceConfig[]>([]);
+  const [savingSource, setSavingSource] = useState<string | null>(null);
 
   // Rate Limit 상태 조회
   useEffect(() => {
@@ -327,6 +339,42 @@ export default function Dashboard() {
 
     fetchRateLimitStatus();
   }, []);
+
+  // 소스 설정 조회
+  useEffect(() => {
+    const fetchSourceConfigs = async () => {
+      try {
+        const response = await fetch('/api/literature/sources');
+        if (response.ok) {
+          const data = await response.json();
+          setSourceConfigs(data.configs);
+        }
+      } catch (error) {
+        console.error('Failed to fetch source configs:', error);
+      }
+    };
+
+    fetchSourceConfigs();
+  }, []);
+
+  // 소스 활성화/비활성화 토글
+  const toggleSource = async (source: string, enabled: boolean) => {
+    setSavingSource(source);
+    try {
+      const response = await fetch('/api/literature/sources', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source, enabled }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setSourceConfigs(data.configs);
+      }
+    } catch (error) {
+      console.error('Failed to toggle source:', error);
+    }
+    setSavingSource(null);
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -392,6 +440,12 @@ export default function Dashboard() {
             onClick={() => setActiveTab('workflow')}
           >
             워크플로우
+          </button>
+          <button
+            className={activeTab === 'settings' ? 'active' : ''}
+            onClick={() => setActiveTab('settings')}
+          >
+            ⚙️ 설정
           </button>
         </nav>
       </header>
@@ -857,6 +911,60 @@ export default function Dashboard() {
                     <span>가장 오래된 기록 = 최초</span>
                   </div>
                 </div>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {activeTab === 'settings' && (
+          <div className="settings">
+            <section className="settings-section">
+              <h2>문헌 소스 설정</h2>
+              <p className="section-intro">
+                검색에 사용할 문헌 소스를 선택합니다. 비활성화된 소스는 검색 시 제외됩니다.
+              </p>
+
+              <div className="source-settings-list">
+                {sourceConfigs.map((config) => (
+                  <div key={config.source} className={`source-setting-item ${config.enabled ? 'enabled' : 'disabled'}`}>
+                    <div className="source-toggle">
+                      <label className="toggle-switch">
+                        <input
+                          type="checkbox"
+                          checked={config.enabled}
+                          onChange={(e) => toggleSource(config.source, e.target.checked)}
+                          disabled={savingSource === config.source}
+                        />
+                        <span className="toggle-slider"></span>
+                      </label>
+                    </div>
+                    <div className="source-info">
+                      <div className="source-header">
+                        <span className="source-name">{config.name}</span>
+                        {config.requiresApiKey && (
+                          <span className="api-key-badge">API 키 필요</span>
+                        )}
+                        {savingSource === config.source && (
+                          <span className="saving-badge">저장 중...</span>
+                        )}
+                      </div>
+                      <span className="source-description">{config.description}</span>
+                      {config.requiresApiKey && config.apiKeyEnvVar && (
+                        <span className="env-var-hint">환경변수: {config.apiKeyEnvVar}</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="settings-note">
+                <h3>참고</h3>
+                <ul>
+                  <li><strong>OpenAlex</strong>: 현대 논문 검색의 주력 소스 (2억+ 논문, 무료)</li>
+                  <li><strong>Semantic Scholar</strong>: OpenAlex 백업용으로 비활성화됨</li>
+                  <li><strong>KCI/RISS</strong>: 공공데이터포털 API 키 발급 후 활성화</li>
+                  <li>설정은 서버 재시작 시 초기화됩니다. 영구 저장은 추후 지원 예정.</li>
+                </ul>
               </div>
             </section>
           </div>
@@ -1861,6 +1969,183 @@ export default function Dashboard() {
           font-size: 12px !important;
           color: #22c55e;
           font-weight: 500;
+        }
+
+        /* Settings Tab */
+        .settings-section {
+          background: #fff;
+          border: 1px solid #e5e5e5;
+          border-radius: 8px;
+          padding: 24px;
+        }
+
+        .settings-section h2 {
+          font-size: 18px;
+          font-weight: 600;
+          margin: 0 0 8px;
+          color: #1a1a1a;
+        }
+
+        .source-settings-list {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          margin-bottom: 24px;
+        }
+
+        .source-setting-item {
+          display: flex;
+          align-items: flex-start;
+          gap: 16px;
+          padding: 16px;
+          background: #f9f9f9;
+          border: 1px solid #e5e5e5;
+          border-radius: 8px;
+          transition: all 0.2s;
+        }
+
+        .source-setting-item.enabled {
+          background: #f0fdf4;
+          border-color: #86efac;
+        }
+
+        .source-setting-item.disabled {
+          background: #fafafa;
+          border-color: #e5e5e5;
+          opacity: 0.7;
+        }
+
+        .source-toggle {
+          flex-shrink: 0;
+          padding-top: 2px;
+        }
+
+        .toggle-switch {
+          position: relative;
+          display: inline-block;
+          width: 44px;
+          height: 24px;
+        }
+
+        .toggle-switch input {
+          opacity: 0;
+          width: 0;
+          height: 0;
+        }
+
+        .toggle-slider {
+          position: absolute;
+          cursor: pointer;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: #ccc;
+          transition: 0.3s;
+          border-radius: 24px;
+        }
+
+        .toggle-slider:before {
+          position: absolute;
+          content: "";
+          height: 18px;
+          width: 18px;
+          left: 3px;
+          bottom: 3px;
+          background-color: white;
+          transition: 0.3s;
+          border-radius: 50%;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+          background-color: #22c55e;
+        }
+
+        .toggle-switch input:disabled + .toggle-slider {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+          transform: translateX(20px);
+        }
+
+        .source-info {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .source-header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .source-name {
+          font-size: 15px;
+          font-weight: 600;
+          color: #1a1a1a;
+        }
+
+        .source-description {
+          font-size: 13px;
+          color: #666;
+        }
+
+        .api-key-badge {
+          background: #fef3c7;
+          color: #92400e;
+          padding: 2px 8px;
+          border-radius: 10px;
+          font-size: 11px;
+          font-weight: 500;
+        }
+
+        .saving-badge {
+          background: #e0e7ff;
+          color: #3730a3;
+          padding: 2px 8px;
+          border-radius: 10px;
+          font-size: 11px;
+          font-weight: 500;
+        }
+
+        .env-var-hint {
+          font-size: 11px;
+          color: #888;
+          font-family: 'Consolas', 'Monaco', monospace;
+        }
+
+        .settings-note {
+          background: #f8f9fa;
+          border-radius: 8px;
+          padding: 16px;
+          margin-top: 16px;
+        }
+
+        .settings-note h3 {
+          font-size: 14px;
+          font-weight: 600;
+          margin: 0 0 12px;
+          color: #1a1a1a;
+        }
+
+        .settings-note ul {
+          margin: 0;
+          padding-left: 20px;
+        }
+
+        .settings-note li {
+          font-size: 13px;
+          color: #666;
+          margin-bottom: 6px;
+        }
+
+        .settings-note li strong {
+          color: #1a1a1a;
         }
 
         @media (max-width: 768px) {

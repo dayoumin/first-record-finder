@@ -3,12 +3,12 @@
  *
  * 주요 기능:
  * - 학명으로 AphiaID 조회
- * - 해당 종의 모든 이명 추출
- * - 원기재 정보 추출
+ * - 해당 종의 모든 이명 추출 (문헌 검색용)
  */
 
 import { fetchWithRetry, delay } from '../utils/fetchWithRetry';
-import { WormsSynonym, WormsRecord } from '../types';
+import { InputValidator } from '../utils/inputValidator';
+import { WormsSynonym } from '../types';
 
 const WORMS_BASE_URL = 'https://www.marinespecies.org/rest';
 
@@ -18,20 +18,7 @@ interface WormsApiRecord {
   scientificname: string;
   authority: string;
   status: string;
-  rank: string;
   valid_AphiaID?: number;
-  valid_name?: string;
-  kingdom?: string;
-  phylum?: string;
-  class?: string;
-  order?: string;
-  family?: string;
-  genus?: string;
-  isMarine?: number;
-  isBrackish?: number;
-  isFreshwater?: number;
-  isTerrestrial?: number;
-  modified?: string;
 }
 
 interface WormsSynonymApiRecord {
@@ -41,13 +28,6 @@ interface WormsSynonymApiRecord {
   status: string;
 }
 
-interface WormsSourceRecord {
-  source_id: number;
-  use: string;
-  reference: string;
-  link?: string;
-  doi?: string;
-}
 
 export interface SynonymExtractionResult {
   success: boolean;
@@ -56,29 +36,9 @@ export interface SynonymExtractionResult {
   // 유효 학명 정보
   acceptedName: string | null;
   aphiaId: number | null;
-  authority: string | null;
-  status: string | null;
 
-  // 분류 정보
-  taxonomy: {
-    kingdom?: string;
-    phylum?: string;
-    class?: string;
-    order?: string;
-    family?: string;
-    genus?: string;
-    rank?: string;
-  };
-
-  // 이명 목록
+  // 이명 목록 (문헌 검색용)
   synonyms: WormsSynonym[];
-
-  // 원기재 정보
-  originalDescription?: {
-    reference: string;
-    link?: string;
-    doi?: string;
-  };
 
   // 에러 정보
   error?: string;
@@ -158,34 +118,6 @@ async function fetchSynonyms(aphiaId: number): Promise<WormsSynonymApiRecord[]> 
 }
 
 /**
- * AphiaID로 원기재 정보 조회
- */
-async function fetchSources(aphiaId: number): Promise<WormsSourceRecord[]> {
-  const url = `${WORMS_BASE_URL}/AphiaSourcesByAphiaID/${aphiaId}`;
-
-  try {
-    const response = await fetchWithRetry(url, {
-      headers: { 'Accept': 'application/json' }
-    });
-
-    if (response.status === 204 || !response.ok) {
-      return [];
-    }
-
-    const text = await response.text();
-    if (!text || text.trim() === '') {
-      return [];
-    }
-
-    const data = JSON.parse(text);
-    return Array.isArray(data) ? data : [];
-  } catch (error) {
-    console.error('WoRMS sources fetch error:', error);
-    return [];
-  }
-}
-
-/**
  * AphiaID로 상세 레코드 조회
  */
 async function fetchRecordById(aphiaId: number): Promise<WormsApiRecord | null> {
@@ -227,21 +159,34 @@ function extractYearFromAuthority(authority: string): number | null {
  * 메인 함수: 학명에서 모든 이명 추출
  */
 export async function extractSynonyms(scientificName: string): Promise<SynonymExtractionResult> {
+  // 입력 검증 및 자동 수정
+  const validation = InputValidator.validateScientificName(scientificName);
+  const searchName = validation.sanitized;
+
   const result: SynonymExtractionResult = {
     success: false,
     inputName: scientificName,
     acceptedName: null,
     aphiaId: null,
-    authority: null,
-    status: null,
-    taxonomy: {},
     synonyms: []
   };
 
+  // 유효하지 않은 입력 처리
+  if (!validation.isValid) {
+    result.error = validation.warnings.join(', ') || 'Invalid scientific name';
+    return result;
+  }
+
+  // 자동 수정이 있었으면 로그 출력
+  if (validation.warnings.length > 0) {
+    console.log(`[WoRMS] Input corrected: ${scientificName} → ${searchName}`);
+    validation.warnings.forEach(w => console.log(`  - ${w}`));
+  }
+
   try {
     // 1. 학명으로 WoRMS 레코드 조회
-    console.log(`[WoRMS] Searching for: ${scientificName}`);
-    const record = await fetchWormsRecord(scientificName);
+    console.log(`[WoRMS] Searching for: ${searchName}`);
+    const record = await fetchWormsRecord(searchName);
 
     if (!record) {
       result.error = 'Species not found in WoRMS';
@@ -264,17 +209,6 @@ export async function extractSynonyms(scientificName: string): Promise<SynonymEx
 
     result.aphiaId = validAphiaId;
     result.acceptedName = validRecord.scientificname;
-    result.authority = validRecord.authority;
-    result.status = validRecord.status;
-    result.taxonomy = {
-      kingdom: validRecord.kingdom,
-      phylum: validRecord.phylum,
-      class: validRecord.class,
-      order: validRecord.order,
-      family: validRecord.family,
-      genus: validRecord.genus,
-      rank: validRecord.rank
-    };
 
     // 3. 이명 목록 조회
     console.log(`[WoRMS] Fetching synonyms for AphiaID: ${validAphiaId}`);
@@ -301,20 +235,6 @@ export async function extractSynonyms(scientificName: string): Promise<SynonymEx
     // 중복 체크 후 추가
     if (!result.synonyms.find(s => s.aphiaId === acceptedSynonym.aphiaId)) {
       result.synonyms.unshift(acceptedSynonym);
-    }
-
-    // 4. 원기재 정보 조회
-    console.log(`[WoRMS] Fetching sources for AphiaID: ${validAphiaId}`);
-    await delay(200);
-    const sources = await fetchSources(validAphiaId);
-
-    const originalDesc = sources.find(s => s.use === 'original description');
-    if (originalDesc) {
-      result.originalDescription = {
-        reference: originalDesc.reference,
-        link: originalDesc.link,
-        doi: originalDesc.doi
-      };
     }
 
     result.success = true;

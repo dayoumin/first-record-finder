@@ -105,11 +105,10 @@ export class BhlClient implements ILiteratureClient {
    * 학명으로 문헌 검색
    */
   async search(query: string, options?: SearchOptions): Promise<LiteratureItem[]> {
-    // API 키 확인
+    // API 키 확인 - 없으면 빈 결과 반환 (에러 대신)
     if (!BHL_API_KEY) {
-      console.warn('[BHL] API key not configured. Get one at https://www.biodiversitylibrary.org/api2/key');
-      console.warn('[BHL] Set BHL_API_KEY environment variable');
-      throw new Error('BHL API key required. Get one at https://www.biodiversitylibrary.org/api2/key');
+      console.log('[BHL] Skipped - API key not configured');
+      return [];
     }
 
     const items: LiteratureItem[] = [];

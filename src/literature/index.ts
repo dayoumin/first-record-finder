@@ -8,6 +8,7 @@ export * from './types';
 // 클라이언트 export
 export { BhlClient } from './bhl-client';
 export { SemanticScholarClient } from './semantic-client';
+export { OpenAlexClient } from './openalex-client';
 export { JStageClient } from './jstage-client';
 export { CiNiiClient } from './cinii-client';
 export { GBIFClient } from './gbif-client';
@@ -22,4 +23,15 @@ export {
   collectLiterature,
   loadSearchResult,
   getAvailableSources,
+  getSourceConfigs,
+  updateSourceConfig,
+  getEnabledSources,
 } from './collector';
+
+// 분석 파이프라인 export
+export {
+  analyzeLiteratureItem,
+  analyzeLiteratureItems,
+  summarizeAnalysisResults,
+} from './analyzer';
+export type { AnalysisProgress, AnalyzeOptions } from './analyzer';

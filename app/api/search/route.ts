@@ -48,11 +48,7 @@ export async function POST(request: NextRequest) {
       inputName: result.inputName,
       acceptedName: result.acceptedName,
       aphiaId: result.aphiaId,
-      authority: result.authority,
-      status: result.status,
-      taxonomy: result.taxonomy,
       synonyms: result.synonyms,
-      originalDescription: result.originalDescription,
       searchUrls
     });
 

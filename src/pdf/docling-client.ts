@@ -237,10 +237,9 @@ export class DoclingClient implements IPDFClient {
       }
 
       const args = [
-        '-m', 'docling',
         filePath,
         '--output', outputDir,
-        '--format', 'json',
+        '--to', 'json',
       ];
 
       if (options.enableOCR) {
@@ -248,7 +247,8 @@ export class DoclingClient implements IPDFClient {
       }
 
       const startTime = Date.now();
-      const childProcess = spawn('python', args);
+      // docling CLI 직접 실행 (python -m docling 대신)
+      const childProcess = spawn('docling', args, { shell: true });
 
       let stdout = '';
       let stderr = '';

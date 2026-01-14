@@ -32,33 +32,8 @@ async function main() {
     console.log('📋 기본 정보');
     console.log('-'.repeat(40));
     console.log(`유효 학명: ${result.acceptedName}`);
-    console.log(`저자: ${result.authority}`);
     console.log(`AphiaID: ${result.aphiaId}`);
-    console.log(`상태: ${result.status}`);
     console.log();
-
-    // 분류 정보
-    console.log('🔬 분류 정보');
-    console.log('-'.repeat(40));
-    console.log(`Kingdom: ${result.taxonomy.kingdom}`);
-    console.log(`Phylum: ${result.taxonomy.phylum}`);
-    console.log(`Class: ${result.taxonomy.class}`);
-    console.log(`Order: ${result.taxonomy.order}`);
-    console.log(`Family: ${result.taxonomy.family}`);
-    console.log(`Genus: ${result.taxonomy.genus}`);
-    console.log(`Rank: ${result.taxonomy.rank}`);
-    console.log();
-
-    // 원기재 정보
-    if (result.originalDescription) {
-      console.log('📖 원기재');
-      console.log('-'.repeat(40));
-      console.log(`문헌: ${result.originalDescription.reference}`);
-      if (result.originalDescription.link) {
-        console.log(`링크: ${result.originalDescription.link}`);
-      }
-      console.log();
-    }
 
     // 이명 목록
     console.log(`📚 이명 목록 (${result.synonyms.length}개)`);

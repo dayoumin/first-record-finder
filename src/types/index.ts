@@ -121,7 +121,6 @@ export interface FirstRecordResult {
   // WoRMS 정보
   acceptedName: string;
   aphiaId: number;
-  authority: string;
   koreanName?: string;        // 국명 (별도 조회 필요)
 
   // 이명 목록
