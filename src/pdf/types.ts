@@ -2,6 +2,17 @@
  * PDF 처리 타입 정의
  */
 
+// OCR 품질 등급
+export type OCRQuality = 'good' | 'fair' | 'poor' | 'manual_needed';
+
+// OCR 품질 평가 결과
+export interface OCRQualityAssessment {
+  quality: OCRQuality;          // 품질 등급
+  score: number;                // 0-100 점수
+  issues: string[];             // 감지된 문제점
+  recommendation: string;       // 권장 처리 방법
+}
+
 // Docling 추출 결과
 export interface DoclingResult {
   // 문서 메타데이터
@@ -22,6 +33,9 @@ export interface DoclingResult {
   processedAt: Date;
   processingTime: number;       // ms
   ocrUsed: boolean;             // OCR 사용 여부
+
+  // OCR 품질 평가 (OCR 사용 시)
+  ocrQuality?: OCRQualityAssessment;
 }
 
 // 추출된 표
@@ -54,7 +68,7 @@ export interface PDFProcessOptions {
 // 기본 옵션
 export const DEFAULT_PDF_OPTIONS: PDFProcessOptions = {
   enableOCR: true,
-  ocrLanguages: ['eng', 'kor'],
+  ocrLanguages: ['eng', 'kor', 'jpn'],  // 영어, 한국어, 일본어
   extractTables: true,
   extractFigures: true,
   maxPages: 0,

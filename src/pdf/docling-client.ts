@@ -6,7 +6,7 @@
  * - Python CLI 직접 호출 (fallback)
  */
 
-import { spawn, ChildProcess } from 'child_process';
+import { spawn } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import {
@@ -18,6 +18,7 @@ import {
   ExtractedFigure,
   DEFAULT_PDF_OPTIONS,
 } from './types';
+import { assessOCRQuality } from './ocr-quality';
 
 /** 기본 타임아웃 설정 */
 const DEFAULT_API_TIMEOUT_MS = 300000;  // 5분 (API)
@@ -175,7 +176,10 @@ export class DoclingClient implements IPDFClient {
    * API 응답 파싱
    */
   private parseAPIResponse(data: DoclingAPIResponse): DoclingResult {
-    const doc = data.document!;
+    if (!data.document) {
+      throw new Error('No document in API response');
+    }
+    const doc = data.document;
 
     const tables: ExtractedTable[] = (doc.content.tables || []).map((t, i) => ({
       id: `table-${i}`,
@@ -192,7 +196,7 @@ export class DoclingClient implements IPDFClient {
       caption: f.caption,
     }));
 
-    return {
+    const result: DoclingResult = {
       metadata: {
         title: doc.metadata.title as string | undefined,
         authors: doc.metadata.authors as string | undefined,
@@ -206,6 +210,11 @@ export class DoclingClient implements IPDFClient {
       processingTime: data.processing_time || 0,
       ocrUsed: true,
     };
+
+    // OCR 품질 평가 추가
+    result.ocrQuality = assessOCRQuality(result);
+
+    return result;
   }
 
   // ============================================================
@@ -288,15 +297,21 @@ export class DoclingClient implements IPDFClient {
             const mdPath = path.join(outputDir, `${baseName}.md`);
             if (fs.existsSync(mdPath)) {
               const text = fs.readFileSync(mdPath, 'utf-8');
-              resolve({
+              const ocrUsed = options.enableOCR || false;
+              const mdResult: DoclingResult = {
                 metadata: {},
                 text,
                 tables: [],
                 figures: [],
                 processedAt: new Date(),
                 processingTime: Date.now() - startTime,
-                ocrUsed: options.enableOCR || false,
-              });
+                ocrUsed,
+              };
+              // OCR 사용 시 품질 평가 추가
+              if (ocrUsed) {
+                mdResult.ocrQuality = assessOCRQuality(mdResult);
+              }
+              resolve(mdResult);
               return;
             }
             throw new Error('No output file found');
@@ -329,7 +344,7 @@ export class DoclingClient implements IPDFClient {
       tables?: Array<{ rows: string[][] }>;
     };
 
-    return {
+    const result: DoclingResult = {
       metadata: {
         title: doc.metadata?.title as string | undefined,
         authors: doc.metadata?.author as string | undefined,
@@ -341,6 +356,13 @@ export class DoclingClient implements IPDFClient {
       processingTime,
       ocrUsed,
     };
+
+    // OCR 사용 시 품질 평가 추가
+    if (ocrUsed) {
+      result.ocrQuality = assessOCRQuality(result);
+    }
+
+    return result;
   }
 
   /**
