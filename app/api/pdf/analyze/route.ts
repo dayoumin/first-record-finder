@@ -119,21 +119,63 @@ export async function POST(request: NextRequest) {
 
     const {
       pdfId,
+      pdfPath,
       text,
       scientificName,
       synonyms = [],
       llmConfig,
     } = body as {
       pdfId?: string;
+      pdfPath?: string;
       text?: string;
       scientificName: string;
       synonyms?: string[];
       llmConfig?: LLMConfig;
     };
 
-    // 텍스트 가져오기 (직접 전달 또는 pdfId로 조회)
+    // 텍스트 가져오기 (우선순위: text > pdfPath > pdfId)
     let analysisText = text;
+    let sourceType: 'text' | 'pdfPath' | 'pdfId' = 'text';
 
+    // 1. pdfPath에서 직접 읽기 (문헌 수집기에서 다운로드한 PDF)
+    if (!analysisText && pdfPath) {
+      // 경로 검증: data/pdfs 디렉토리 내부인지 확인
+      const pdfDir = path.join(process.cwd(), 'data', 'pdfs');
+      const resolvedPdfPath = path.resolve(pdfPath);
+
+      if (!resolvedPdfPath.startsWith(path.resolve(pdfDir))) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid pdfPath: must be within data/pdfs directory' },
+          { status: 400 }
+        );
+      }
+
+      if (!fs.existsSync(pdfPath)) {
+        return NextResponse.json(
+          { success: false, error: `PDF file not found: ${pdfPath}` },
+          { status: 404 }
+        );
+      }
+
+      // PDF에서 텍스트 추출 (기존 추출 결과가 있는지 먼저 확인)
+      const pdfBasename = path.basename(pdfPath, '.pdf');
+      const extractionPath = path.join(RESULTS_DIR, `${pdfBasename}_extraction.json`);
+
+      if (fs.existsSync(extractionPath)) {
+        // 기존 추출 결과 사용
+        const extractionData = JSON.parse(fs.readFileSync(extractionPath, 'utf-8'));
+        analysisText = extractionData.extraction?.text;
+        sourceType = 'pdfPath';
+      } else {
+        // TODO: Docling으로 텍스트 추출 (현재는 에러 반환)
+        return NextResponse.json(
+          { success: false, error: 'PDF text extraction required. Please upload PDF first via /api/pdf/upload' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // 2. pdfId로 조회
     if (!analysisText && pdfId) {
       const extractionPath = path.join(RESULTS_DIR, `${pdfId}_extraction.json`);
 
@@ -155,6 +197,7 @@ export async function POST(request: NextRequest) {
 
       const extractionData = JSON.parse(fs.readFileSync(extractionPath, 'utf-8'));
       analysisText = extractionData.extraction?.text;
+      sourceType = 'pdfId';
 
       if (!analysisText) {
         return NextResponse.json(
@@ -166,10 +209,12 @@ export async function POST(request: NextRequest) {
 
     if (!analysisText) {
       return NextResponse.json(
-        { success: false, error: 'Either text or pdfId is required' },
+        { success: false, error: 'Either text, pdfPath, or pdfId is required' },
         { status: 400 }
       );
     }
+
+    console.log(`[PDF Analyze] Source type: ${sourceType}`);
 
     // LLM 설정 (요청에서 전달하거나 환경변수 사용)
     const config: LLMConfig = llmConfig || loadLLMConfigFromEnv();

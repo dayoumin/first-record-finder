@@ -14,7 +14,13 @@
       "Bash(py -3.13 -m docling --help)",
       "Bash(docling:*)",
       "Bash(py:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(npx tailwindcss:*)",
+      "Bash(./node_modules/.bin/tailwindcss:*)",
+      "Bash(node:*)",
+      "Bash(npx shadcn@latest add select dialog table command popover toast sheet scroll-area separator dropdown-menu tooltip switch label textarea checkbox -y)",
+      "Bash(npx shadcn@latest add:*)",
+      "Bash(npm run build:*)"
     ]
   }
 }

@@ -21,8 +21,8 @@ import {
 import { assessOCRQuality } from './ocr-quality';
 
 /** 기본 타임아웃 설정 */
-const DEFAULT_API_TIMEOUT_MS = 300000;  // 5분 (API)
-const DEFAULT_CLI_TIMEOUT_MS = 600000;  // 10분 (CLI, OCR 포함 시 오래 걸림)
+const DEFAULT_API_TIMEOUT_MS = 10000;   // 10초 (API) - 서버 없으면 빠르게 실패
+const DEFAULT_CLI_TIMEOUT_MS = 30000;   // 30초 (CLI) - 짧게 설정, 실패 시 메타데이터로 폴백
 
 /** 타임아웃 에러 */
 class DoclingTimeoutError extends Error {

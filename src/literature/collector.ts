@@ -38,8 +38,8 @@ const RESULTS_DIR = path.join(process.cwd(), 'data', 'results');
  * 문헌 검색 소스 역할:
  * - 역사적 최초 기록 (1800년대~): BHL, J-STAGE, CiNii
  * - 현대 영문 논문: OpenAlex (주력), Semantic Scholar (백업)
- * - 기후 변화로 인한 최근 신규 기록: KCI, RISS (한국 논문)
- * - 생물다양성 기록 데이터: GBIF, OBIS
+ * - 한국 논문: ScienceON (주력, KCI/RISS 대체 가능)
+ * - 생물다양성 기록 데이터: GBIF, OBIS (참고용)
  */
 const clients: Record<LiteratureSource, ILiteratureClient | null> = {
   // === 학술 논문 소스 ===
@@ -48,9 +48,13 @@ const clients: Record<LiteratureSource, ILiteratureClient | null> = {
   openalex: new OpenAlexClient(), // 현대 영문 논문 (주력, 2억+ 논문)
   jstage: new JStageClient(),     // 일본 논문 (일제강점기 자료)
   cinii: new CiNiiClient(),       // 일본 학술정보
-  kci: new KciClient(),           // 한국 학술지 (기후 변화 신규 기록)
-  riss: new RissClient(),         // 한국 학위논문 (기후 변화 신규 기록)
-  scienceon: new ScienceOnClient(), // KISTI 과학기술 논문
+
+  // === 한국 논문 DB ===
+  // ScienceON: 가장 포괄적 (논문 2억 + 특허 5천만 + 보고서 + 동향)
+  // KCI/RISS: ScienceON으로 대체 가능, 필요시 대시보드에서 활성화
+  scienceon: new ScienceOnClient(), // KISTI 통합 (주력)
+  kci: new KciClient(),           // 한국학술지 (피인용 횟수 필요시)
+  riss: new RissClient(),         // 학위논문 특화 (필요시)
 
   // === 보조 자료 (표본/분포 데이터 - 참고용) ===
   gbif: new GBIFClient(),         // 생물다양성 표본 기록

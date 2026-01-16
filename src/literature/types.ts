@@ -34,9 +34,16 @@ export const DEFAULT_SOURCE_CONFIGS: LiteratureSourceConfig[] = [
   { source: 'semantic', enabled: false, name: 'Semantic Scholar', description: '현대 논문 (백업)', requiresApiKey: false },
   { source: 'jstage', enabled: true, name: 'J-STAGE', description: '일본 학술지 (일제강점기)', requiresApiKey: false },
   { source: 'cinii', enabled: true, name: 'CiNii', description: '일본 학술 DB', requiresApiKey: false },
-  { source: 'kci', enabled: true, name: 'KCI', description: '한국학술지 (API 키 필요)', requiresApiKey: true, apiKeyEnvVar: 'KCI_API_KEY' },
-  { source: 'riss', enabled: true, name: 'RISS', description: '한국 학위논문 (API 키 필요)', requiresApiKey: true, apiKeyEnvVar: 'RISS_API_KEY' },
-  { source: 'scienceon', enabled: true, name: 'ScienceON', description: 'KISTI 과학기술 논문', requiresApiKey: true, apiKeyEnvVar: 'SCIENCEON_API_KEY' },
+
+  // === 한국 논문 DB ===
+  // ScienceON이 가장 포괄적 (2억 건: 국내+해외 논문, 특허 5천만 건, 연구보고서, 동향정보)
+  // KCI/RISS는 ScienceON으로 대체 가능하므로 기본 비활성화
+  // - KCI 장점: 피인용 횟수 제공 (필요시 활성화)
+  // - RISS 장점: 학위논문 특화 (필요시 활성화)
+  // - 셋 다 API로 PDF 직접 다운로드 불가 (메타데이터만 제공)
+  { source: 'scienceon', enabled: true, name: 'ScienceON', description: 'KISTI 통합 (논문 2억+특허 5천만)', requiresApiKey: true, apiKeyEnvVar: 'SCIENCEON_API_KEY' },
+  { source: 'kci', enabled: false, name: 'KCI', description: '한국학술지 (피인용 횟수 제공)', requiresApiKey: true, apiKeyEnvVar: 'KCI_API_KEY' },
+  { source: 'riss', enabled: false, name: 'RISS', description: '한국 학위논문 특화', requiresApiKey: true, apiKeyEnvVar: 'RISS_API_KEY' },
 
   // === 보조 자료 (표본 데이터, 분포 정보 - 참고용) ===
   { source: 'gbif', enabled: false, name: 'GBIF', description: '표본 데이터 (참고용)', requiresApiKey: false },
@@ -158,6 +165,62 @@ export interface SearchOptions {
   yearTo?: number;
   maxResults?: number;
   includeKoreaKeyword?: boolean;  // Korea 키워드 포함 여부 (기본: true)
+  contentType?: ScienceOnTarget;  // ScienceON 전용: 콘텐츠 타입
+}
+
+// ScienceON 콘텐츠 타입
+export type ScienceOnTarget = 'ARTI' | 'PATE' | 'REPO';
+
+// ScienceON 특허 정보
+export interface PatentItem {
+  id: string;
+  source: 'scienceon';
+  contentType: 'PATE';
+
+  // 기본 정보
+  title: string;
+  applicant: string;              // 출원인
+  inventor?: string;              // 발명자
+  applicationNumber: string;      // 출원번호
+  applicationDate: string;        // 출원일
+  registrationNumber?: string;    // 등록번호
+  registrationDate?: string;      // 등록일
+  publicationNumber?: string;     // 공개번호
+  publicationDate?: string;       // 공개일
+
+  // 분류 정보
+  ipcCodes: string[];             // IPC 분류
+  cpcCodes?: string[];            // CPC 분류
+
+  // 링크 및 상세
+  abstract?: string;
+  url: string;
+  searchedName: string;
+}
+
+// ScienceON 연구보고서 정보
+export interface ReportItem {
+  id: string;
+  source: 'scienceon';
+  contentType: 'REPO';
+
+  // 기본 정보
+  title: string;
+  authors: string[];
+  organization: string;           // 연구수행기관
+  projectName?: string;           // 과제명
+  projectNumber?: string;         // 과제번호
+  year: number | null;
+
+  // 분류 정보
+  ministry?: string;              // 소관부처
+  researchType?: string;          // 연구유형
+
+  // 링크 및 상세
+  abstract?: string;
+  url: string;
+  pdfUrl?: string;
+  searchedName: string;
 }
 
 // 문헌 수집 진행 상황
