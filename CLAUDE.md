@@ -62,10 +62,12 @@
 기후 변화로 분포 확장, 외래종 유입 등 최근 한국에서 처음 발견된 종
 - **KCI**: 한국학술지인용색인 (공공데이터포털 API)
 - **RISS**: 학술연구정보서비스 (공공데이터포털 API)
+- **ScienceON**: KISTI 과학기술 지식인프라 (API 키 필요)
 
-#### 3. 보조 소스
-- **Semantic Scholar**: 영문 현대 논문
-- **GBIF / OBIS**: 표본/분포 데이터 (보조용)
+#### 3. 보조 소스 (참고용)
+- **OpenAlex**: 영문 현대 논문 (주력)
+- **Semantic Scholar**: 영문 현대 논문 (백업)
+- **GBIF / OBIS**: 표본/분포 데이터 (참고용 - 최초기록 판정에 부적합)
 
 ## 프로젝트 구조
 
@@ -87,9 +89,11 @@ src/
     ├── cinii-client.ts      # CiNii API (일본 학술정보)
     ├── kci-client.ts        # KCI API (한국 학술지)
     ├── riss-client.ts       # RISS API (한국 학위논문)
+    ├── scienceon-client.ts  # ScienceON API (KISTI)
     ├── semantic-client.ts   # Semantic Scholar API
-    ├── gbif-client.ts       # GBIF API (표본 데이터)
-    ├── obis-client.ts       # OBIS API (해양 분포)
+    ├── openalex-client.ts   # OpenAlex API (현대 논문)
+    ├── gbif-client.ts       # GBIF API (표본 데이터, 참고용)
+    ├── obis-client.ts       # OBIS API (해양 분포, 참고용)
     ├── collector.ts         # 통합 수집기
     └── index.ts             # 모듈 export
 
@@ -144,6 +148,10 @@ BHL_API_KEY=your-bhl-key
 KCI_API_KEY=your-kci-key
 RISS_API_KEY=your-riss-key
 
+# ScienceON (KISTI) - https://scienceon.kisti.re.kr/por/oapi/openApi.do
+SCIENCEON_CLIENT_ID=your-64-char-client-id
+SCIENCEON_API_KEY=your-access-token
+
 # Docling
 DOCLING_API_URL=http://localhost:5000
 ```
@@ -155,4 +163,6 @@ DOCLING_API_URL=http://localhost:5000
 - **J-STAGE API**: https://www.jstage.jst.go.jp/
 - **KCI API**: https://www.data.go.kr/data/3049042/openapi.do
 - **RISS API**: https://www.data.go.kr/data/3046254/openapi.do
+- **ScienceON API**: https://scienceon.kisti.re.kr/apigateway
+- **OpenAlex API**: https://openalex.org/
 - **Docling**: https://github.com/DS4SD/docling

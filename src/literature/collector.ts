@@ -26,6 +26,7 @@ import { GBIFClient } from './gbif-client';
 import { OBISClient } from './obis-client';
 import { KciClient } from './kci-client';
 import { RissClient } from './riss-client';
+import { ScienceOnClient } from './scienceon-client';
 
 // PDF 저장 디렉토리
 const PDF_DIR = path.join(process.cwd(), 'data', 'pdfs');
@@ -41,15 +42,21 @@ const RESULTS_DIR = path.join(process.cwd(), 'data', 'results');
  * - 생물다양성 기록 데이터: GBIF, OBIS
  */
 const clients: Record<LiteratureSource, ILiteratureClient | null> = {
+  // === 학술 논문 소스 ===
   bhl: new BhlClient(),           // 역사적 문헌 (1800년대~)
   semantic: new SemanticScholarClient(),  // 현대 영문 논문 (백업)
   openalex: new OpenAlexClient(), // 현대 영문 논문 (주력, 2억+ 논문)
   jstage: new JStageClient(),     // 일본 논문 (일제강점기 자료)
   cinii: new CiNiiClient(),       // 일본 학술정보
-  gbif: new GBIFClient(),         // 생물다양성 기록
-  obis: new OBISClient(),         // 해양생물 분포
   kci: new KciClient(),           // 한국 학술지 (기후 변화 신규 기록)
   riss: new RissClient(),         // 한국 학위논문 (기후 변화 신규 기록)
+  scienceon: new ScienceOnClient(), // KISTI 과학기술 논문
+
+  // === 보조 자료 (표본/분포 데이터 - 참고용) ===
+  gbif: new GBIFClient(),         // 생물다양성 표본 기록
+  obis: new OBISClient(),         // 해양생물 분포
+
+  // === 수동 업로드 ===
   manual: null,                   // 수동 업로드용 (클라이언트 불필요)
 };
 
@@ -105,11 +112,30 @@ function sanitizeFilename(name: string): string {
 }
 
 /**
- * 여러 소스에서 문헌 검색
+ * 소스별 Korea 키워드 필요 여부
+ * - KCI/RISS/ScienceON: 이미 한국 DB이므로 Korea 키워드 불필요
+ * - 기타: 전 세계 문헌이므로 Korea 키워드로 필터링 필요
+ */
+const KOREA_DB_SOURCES: LiteratureSource[] = ['kci', 'riss', 'scienceon'];
+
+/**
+ * 소스가 한국 전용 DB인지 확인
+ */
+function isKoreaOnlySource(source: LiteratureSource): boolean {
+  return KOREA_DB_SOURCES.includes(source);
+}
+
+/**
+ * 여러 소스에서 문헌 검색 (최적화된 Phase 1/2 전략)
  *
- * 검색 전략:
- * 1. 원기재 문헌 검색: 학명만으로 검색 (1700-1950년, Korea 키워드 없이)
- * 2. 한국 기록 문헌 검색: 학명 + Korea로 검색 (모든 연도)
+ * Phase 1: 유효명으로만 검색 (모든 소스)
+ * Phase 2: 결과 부족 시 주요 이명으로 추가 검색 (BHL만)
+ *
+ * 소스별 전략:
+ * - BHL: 학명 + Corea/Korea (역사적 문헌)
+ * - J-STAGE/CiNii: 학명 + 朝鮮/韓国/Korea (일본 문헌)
+ * - OpenAlex/Semantic: 학명 + Korea (영문 논문)
+ * - KCI/RISS: 학명만 (이미 한국 DB)
  */
 export async function searchLiterature(
   request: LiteratureSearchRequest,
@@ -125,102 +151,121 @@ export async function searchLiterature(
   const allItems: LiteratureItem[] = [];
   const errors: SourceError[] = [];
 
-  // 검색어 목록 (유효명 + 이명)
-  const searchTerms = [scientificName, ...synonyms];
-
-  // 검색 전략 구성
-  type StrategyConfig = {
-    name: string;
-    includeKoreaKeyword: boolean;
-    yearFrom?: number;
-    yearTo?: number;
-    description: string;
-  };
-
-  const searchStrategies: StrategyConfig[] = [];
-
-  if (searchStrategy === 'historical' || searchStrategy === 'both') {
-    searchStrategies.push({
-      name: 'historical',
-      includeKoreaKeyword: false,
-      yearFrom: yearFrom || 1700,
-      yearTo: yearTo || 1970,
-      description: '역사적 원기재 문헌 (1700-1970)'
-    });
-  }
-
-  if (searchStrategy === 'korea' || searchStrategy === 'both') {
-    searchStrategies.push({
-      name: 'korea_records',
-      includeKoreaKeyword: true,
-      yearFrom: yearFrom,
-      yearTo: yearTo,
-      description: '한국 기록 문헌'
-    });
-  }
-
   console.log(`[Collector] Search strategy: ${searchStrategy}`);
-  console.log(`[Collector] Active strategies: ${searchStrategies.map(s => s.name).join(', ')}`);
+  console.log(`[Collector] Target sources: ${targetSources.join(', ')}`);
 
-  let searched = 0;
-  const totalSearches = targetSources.length * searchTerms.length * searchStrategies.length;
+  // ================================================================
+  // Phase 1: 유효명으로 검색
+  // ================================================================
+  console.log(`\n[Collector] === Phase 1: 유효명 검색 ===`);
 
   for (const source of targetSources) {
     const client = clients[source];
+    if (!client) continue;
 
-    if (!client) {
-      console.warn(`[Collector] No client for source: ${source}`);
-      continue;
+    // 한국 DB는 Korea 키워드 불필요
+    const needsKoreaKeyword = !isKoreaOnlySource(source);
+
+    try {
+      onProgress?.({
+        phase: 'searching',
+        currentSource: source,
+        currentItem: scientificName,
+        searched: allItems.length,
+        downloaded: 0,
+        analyzed: 0,
+        total: maxResults,
+        errors: [],
+      });
+
+      // 역사적 문헌 검색 (BHL, J-STAGE, CiNii)
+      // - BHL: 1700-1970 역사적 문헌
+      // - J-STAGE/CiNii: 일제강점기(1910-1945) 한반도 조사 기록
+      const HISTORICAL_SOURCES: LiteratureSource[] = ['bhl', 'jstage', 'cinii'];
+      if ((searchStrategy === 'historical' || searchStrategy === 'both') && HISTORICAL_SOURCES.includes(source)) {
+        console.log(`[Collector] ${source}: 원기재 검색 (학명만)`);
+        const historicalItems = await client.search(scientificName, {
+          yearFrom: yearFrom || (source === 'bhl' ? 1700 : 1900),
+          yearTo: yearTo || 1970,
+          maxResults: 10,
+          includeKoreaKeyword: false,  // 원기재는 Korea 키워드 없이
+        });
+        addUniqueItems(allItems, historicalItems);
+      }
+
+      // 한국 기록 검색
+      if (searchStrategy === 'korea' || searchStrategy === 'both') {
+        console.log(`[Collector] ${source}: 한국 기록 검색 (Korea 키워드: ${needsKoreaKeyword})`);
+        const koreaItems = await client.search(scientificName, {
+          yearFrom: yearFrom,
+          yearTo: yearTo,
+          maxResults: 10,
+          includeKoreaKeyword: needsKoreaKeyword,
+        });
+        addUniqueItems(allItems, koreaItems);
+      }
+
+    } catch (error) {
+      console.error(`[Collector] Error searching ${source}:`, error);
+      errors.push({
+        source,
+        error: error instanceof Error ? error.message : 'Search failed',
+      });
     }
+  }
 
-    for (const strategy of searchStrategies) {
-      console.log(`[Collector] Strategy: ${strategy.description}`);
+  console.log(`[Collector] Phase 1 결과: ${allItems.length}건`);
 
-      for (const term of searchTerms) {
+  // ================================================================
+  // Phase 2: 결과 부족 시 주요 이명으로 추가 검색
+  // ================================================================
+  const MIN_RESULTS = 5;
+  if (allItems.length < MIN_RESULTS && synonyms.length > 0) {
+    console.log(`\n[Collector] === Phase 2: 이명 추가 검색 ===`);
+
+    // 원기재명 또는 첫 번째 이명만 사용 (최대 2개)
+    const prioritySynonyms = synonyms.slice(0, 2);
+
+    for (const synonym of prioritySynonyms) {
+      if (allItems.length >= maxResults) break;
+
+      // BHL에서만 이명 검색 (역사적 문헌에서 이명이 중요)
+      const bhlClient = clients.bhl;
+      if (bhlClient) {
         try {
-          onProgress?.({
-            phase: 'searching',
-            currentSource: source,
-            currentItem: `${term} (${strategy.name})`,
-            searched,
-            downloaded: 0,
-            analyzed: 0,
-            total: totalSearches,
-            errors: [],
+          // 1. 원기재 검색 (Korea 키워드 없이) - 이명의 원기재를 찾기 위함
+          console.log(`[Collector] BHL: 이명 원기재 검색 - ${synonym}`);
+          const originalItems = await bhlClient.search(synonym, {
+            yearFrom: 1700,
+            yearTo: 1970,
+            maxResults: 5,
+            includeKoreaKeyword: false,  // 원기재는 Korea 없이
           });
+          addUniqueItems(allItems, originalItems);
 
-          const items = await client.search(term, {
-            yearFrom: strategy.yearFrom,
-            yearTo: strategy.yearTo,
-            maxResults: Math.ceil(maxResults / (searchTerms.length * searchStrategies.length)),
-            includeKoreaKeyword: strategy.includeKoreaKeyword,
-          });
-
-          // 중복 제거 (같은 제목 + 연도)
-          for (const item of items) {
-            const isDuplicate = allItems.some(
-              existing =>
-                existing.title.toLowerCase() === item.title.toLowerCase() &&
-                existing.year === item.year
-            );
-
-            if (!isDuplicate) {
-              allItems.push(item);
-            }
+          // 2. 한국 기록 검색 (Korea 키워드 포함) - 결과 부족 시
+          if (allItems.length < MIN_RESULTS) {
+            console.log(`[Collector] BHL: 이명 한국기록 검색 - ${synonym}`);
+            const koreaItems = await bhlClient.search(synonym, {
+              yearFrom: 1700,
+              yearTo: 1970,
+              maxResults: 5,
+              includeKoreaKeyword: true,
+            });
+            addUniqueItems(allItems, koreaItems);
           }
-
-          searched++;
         } catch (error) {
-          console.error(`[Collector] Error searching ${source} for "${term}" (${strategy.name}):`, error);
-          errors.push({
-            source,
-            error: error instanceof Error ? error.message : 'Search failed',
-          });
-          searched++;
+          console.error(`[Collector] BHL synonym search error:`, error);
         }
       }
     }
+
+    console.log(`[Collector] Phase 2 결과: ${allItems.length}건`);
   }
+
+  // ================================================================
+  // 결과 정리
+  // ================================================================
 
   // 연도순 정렬 (오래된 것 먼저 - 최초 기록 찾기)
   allItems.sort((a, b) => (a.year || 9999) - (b.year || 9999));
@@ -245,12 +290,30 @@ export async function searchLiterature(
     searchedAt: new Date().toISOString(),
   }, null, 2));
 
+  console.log(`[Collector] 최종 결과: ${limitedItems.length}건`);
+
   return {
     scientificName,
     totalFound: limitedItems.length,
     items: limitedItems,
     errors,
   };
+}
+
+/**
+ * 중복 없이 아이템 추가
+ */
+function addUniqueItems(target: LiteratureItem[], items: LiteratureItem[]): void {
+  for (const item of items) {
+    const isDuplicate = target.some(
+      existing =>
+        existing.title.toLowerCase() === item.title.toLowerCase() &&
+        existing.year === item.year
+    );
+    if (!isDuplicate) {
+      target.push(item);
+    }
+  }
 }
 
 /**

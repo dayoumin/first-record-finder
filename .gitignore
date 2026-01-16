@@ -39,11 +39,16 @@ next-env.d.ts
 Thumbs.db
 
 # Data files (large)
-data/pdfs/*.pdf
-data/exports/*.xlsx
-data/results/*.json
+data/pdfs/
+data/exports/
+data/results/
+data/reports/
+data/text_cache/
+data/llm-usage.json
+
+# Test output files
+test-*.json
+nul
 
 # Keep directory structure
-!data/pdfs/.gitkeep
-!data/exports/.gitkeep
-!data/results/.gitkeep
+!data/.gitkeep

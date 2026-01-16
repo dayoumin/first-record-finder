@@ -3,15 +3,20 @@
  */
 
 import * as fs from 'fs';
+import * as dotenv from 'dotenv';
 import { createLLMClient } from '../src/llm';
 import { LLMConfig } from '../src/llm/types';
 
+// .env.local 파일 로드
+dotenv.config({ path: '.env.local' });
+
 const TEXT_FILE = 'd:/Projects/first-record-finder/data/pdfs/test_output/openalex_Variations_in_species_composition_of_demersal_orga_1768378484575.txt';
 
+// OpenRouter 무료 모델 사용
 const LLM_CONFIG: LLMConfig = {
-  provider: 'ollama',
-  model: process.env.OLLAMA_MODEL || 'qwen3:4b',
-  baseUrl: process.env.OLLAMA_HOST || 'http://127.0.0.1:11434',
+  provider: 'openrouter',
+  model: process.env.OPENROUTER_MODEL || 'google/gemma-3-4b-it:free',
+  apiKey: process.env.OPENROUTER_API_KEY,
 };
 
 async function testLLMAnalysis() {

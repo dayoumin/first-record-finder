@@ -53,6 +53,14 @@ export interface LiteratureAnalysisResult {
   processedAt: Date;
   modelUsed: string;
   tokensUsed?: number;
+
+  // 디버깅 정보 (선택적)
+  debug?: {
+    inputTextPreview: string;   // 입력 텍스트 앞부분 (최대 500자)
+    inputTextLength: number;    // 전체 입력 텍스트 길이
+    rawResponse: string;        // LLM의 원본 응답
+    promptUsed: string;         // 실제 사용된 프롬프트
+  };
 }
 
 // 분석 요청

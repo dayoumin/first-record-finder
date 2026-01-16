@@ -176,7 +176,6 @@ export class LLMClient implements ILLMClient {
    */
   async analyzeLiterature(request: AnalysisRequest): Promise<LiteratureAnalysisResult> {
     const prompt = this.buildAnalysisPrompt(request);
-    const startTime = Date.now();
 
     try {
       const response = await this.generate(prompt);
@@ -193,6 +192,13 @@ export class LLMClient implements ILLMClient {
         reasoning: parsed.reasoning,
         processedAt: new Date(),
         modelUsed: `${this.provider}/${this.model}`,
+        // 디버깅 정보 추가
+        debug: {
+          inputTextPreview: request.text.slice(0, 500),
+          inputTextLength: request.text.length,
+          rawResponse: response.slice(0, 2000),  // 응답도 길면 잘라냄
+          promptUsed: prompt.slice(0, 1000),     // 프롬프트 앞부분만
+        },
       };
     } catch (error) {
       console.error('[LLM] Analysis failed:', error);

@@ -116,6 +116,7 @@ export async function analyzeLiteratureItem(
       reasoning: analysisResult.reasoning,
       analyzedAt: analysisResult.processedAt,
       modelUsed: analysisResult.modelUsed,
+      analysisSource: 'pdf_fulltext',  // PDF 전문 분석
     };
 
     onProgress?.({

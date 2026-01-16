@@ -15,6 +15,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "dotenv": "^17.2.3",
     "next": "^14.2.0",
     "pdf-parse": "^1.1.1",
     "puppeteer": "^22.0.0",
